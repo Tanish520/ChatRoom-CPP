@@ -1,0 +1,13 @@
+services:
+  chat-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatroom-cpp-dev
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    ports:
+      - "5555:5555"
+    stdin_open: true
+    tty: true
