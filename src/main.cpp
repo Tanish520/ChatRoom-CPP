@@ -26,7 +26,7 @@
 Version 12: owner-controlled room management.
 
 Version 6 gave us the architectural core:
-- epoll for readiness
+- epoll for readiness₹
 - thread pool for bounded parallel processing
 
 Version 12 keeps the Version 11 authentication model and adds:
@@ -47,6 +47,8 @@ This version upgrades authorization semantics:
 - rooms now have real owner-only controls
 - owners can change room protection
 - owners can delete their rooms
+- USERS now reports registered-user active/inactive status
+- ROOMS now reports room protection and active/inactive status
 */
 
 namespace {
@@ -525,18 +527,20 @@ public:
     std::string build_users_response() {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        std::vector<std::string> names;
-        names.reserve(usernames_.size());
+        std::vector<std::string> users;
+        users.reserve(accounts_.size());
 
-        for (const std::string& username : usernames_) {
-            names.push_back(username);
+        for (const auto& [username, account] : accounts_) {
+            (void)account;
+            const bool is_active = (usernames_.count(username) > 0);
+            users.push_back(username + ":" + (is_active ? "active" : "inactive"));
         }
 
-        std::sort(names.begin(), names.end());
+        std::sort(users.begin(), users.end());
 
         std::string response = "USERS";
-        for (const std::string& name : names) {
-            response += " " + name;
+        for (const std::string& user : users) {
+            response += " " + user;
         }
         response += "\n";
         return response;
@@ -578,19 +582,30 @@ public:
     std::string build_rooms_response() {
         std::lock_guard<std::mutex> lock(mutex_);
 
-        std::vector<std::string> room_names;
-        room_names.reserve(rooms_.size());
+        std::unordered_map<std::string, std::size_t> room_member_counts;
+        for (const auto& [fd, session] : sessions_) {
+            (void)fd;
+            if (!session.username.empty() && !session.room.empty()) {
+                ++room_member_counts[session.room];
+            }
+        }
+
+        std::vector<std::string> room_entries;
+        room_entries.reserve(rooms_.size());
 
         for (const auto& [room_name, room_info] : rooms_) {
-            room_names.push_back(
-                room_name + (room_info.is_protected ? ":protected" : ":public")
+            const bool is_active = (room_member_counts[room_name] > 0);
+            room_entries.push_back(
+                room_name +
+                (room_info.is_protected ? ":protected" : ":public") +
+                (is_active ? ":active" : ":inactive")
             );
         }
 
-        std::sort(room_names.begin(), room_names.end());
+        std::sort(room_entries.begin(), room_entries.end());
 
         std::string response = "ROOMS";
-        for (const std::string& room : room_names) {
+        for (const std::string& room : room_entries) {
             response += " " + room;
         }
         response += "\n";
@@ -941,6 +956,7 @@ int main() {
     std::cout << "Server is listening on port " << kPort << '\n';
     std::cout << "Version 12: owner-controlled room management is active.\n";
     std::cout << "Commands: REGISTER <name> <pass>, LOGIN <name> <pass>, CREATE_ROOM <room> <pass_or_dash>, JOIN_ROOM <room> <pass_or_dash>, ROOM_USERS, SET_ROOM_PASS <room> <pass_or_dash>, DELETE_ROOM <room>, MSG <text>, PM <user> <text>, USERS, ROOMS, QUIT\n";
+    std::cout << "USERS reports registered accounts as active/inactive. ROOMS reports protection and active/inactive state.\n";
 
     epoll_event ready_events[kMaxEvents];
 
@@ -1005,7 +1021,7 @@ int main() {
                         continue;
                     }
 
-                    send_text(client_fd, "WELCOME Register or login first. Owners can later use SET_ROOM_PASS and DELETE_ROOM on their own rooms.\n");
+                    send_text(client_fd, "WELCOME Register or login first. USERS shows registered account status and ROOMS shows room status. Owners can later use SET_ROOM_PASS and DELETE_ROOM on their own rooms.\n");
                 }
 
                 continue;

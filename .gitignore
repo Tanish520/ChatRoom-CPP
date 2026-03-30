@@ -2,3 +2,6 @@ chat_server
 simple_client
 build/
 cmake-build-*/
+PROJECT_CONTEXT.md
+LEARNING_JOURNAL.md
+ARCHITECTURE_CODE_MAP.md
