@@ -4,7 +4,19 @@
 
 ## Overview
 
-`ChatRoom-CPP` is a multi-client chat application built to learn how network servers evolve from simple blocking designs into event-driven systems. The current project version implements a Linux `epoll`-based server, in-memory authentication, room-based messaging, private messaging, owner-controlled room management, and a cleaner terminal client for interactive testing.
+🚀 Project Overview
+
+ChatRoom-CPP is a high-performance, multi-client chat server and terminal client built entirely in C++. Designed as a robust systems engineering project, it demonstrates the ability to handle concurrent network connections efficiently using Linux-native event notification and multi-threading.
+
+Instead of relying on a resource-heavy thread-per-client model, the server leverages non-blocking I/O and `epoll` to manage socket readiness. When a client sends data, the core event loop dispatches the workload to a fixed-size worker thread pool. This ensures that command parsing and business logic are processed concurrently without blocking the main network thread, allowing the application to scale efficiently.
+
+🧠 Core Architecture & Concurrency
+
+Event-Driven I/O: Uses Linux `epoll` to monitor multiple non-blocking TCP sockets asynchronously on a single thread.
+
+Worker Thread Pool: A fixed pool of worker threads pulls I/O tasks from a concurrent queue, extracts network data, and executes application logic.
+
+Thread-Safe State Management: Shared centralized state, such as active client sessions, registered accounts, and room metadata, is protected with mutexes to prevent race conditions during concurrent updates.
 
 
 ## Features
